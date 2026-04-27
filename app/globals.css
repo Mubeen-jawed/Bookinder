@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  background-color: #F8F5F0;
+  color: #2B2B2B;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  overscroll-behavior-y: none;
+}
+
+/* Prevent iOS Safari from auto-zooming on input focus.
+   Inputs must be ≥16px font-size to suppress this. */
+@media (max-width: 640px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* Subtle tap highlight on mobile, no aggressive blue flash */
+* {
+  -webkit-tap-highlight-color: rgba(107, 79, 58, 0.08);
+}
+
+button,
+a {
+  touch-action: manipulation;
+}
+
+/* Long URLs / titles should wrap inside cards instead of overflowing */
+.break-anywhere {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(229, 222, 214, 0.4) 0%,
+    rgba(229, 222, 214, 0.8) 50%,
+    rgba(229, 222, 214, 0.4) 100%
+  );
+  background-size: 800px 100%;
+}
