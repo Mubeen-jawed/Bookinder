@@ -79,31 +79,55 @@ export async function searchBookPDFs(
   const query = rawQuery.trim();
   if (!query) return { results: [], suggestion: null };
 
-  const fetched =
-    tier === "primary"
-      ? await Promise.all([
-          searchBrave(query).catch(() => [] as EnrichedResult[]),
-        ])
-      : await Promise.all([
-          searchInternetArchive(query).catch(() => [] as EnrichedResult[]),
-          searchOpenLibrary(query).catch(() => [] as EnrichedResult[]),
-        ]);
+  if (tier === "primary") {
+    // Run Brave, Google Books cover lookup, and the spelling suggestion all
+    // in parallel — Google Books returns covers + titles for the whole query
+    // in a single request, so we get covers without the per-result fan-out.
+    const [braveResults, coverMap, suggestionCandidate] = await Promise.all([
+      searchBrave(query).catch(() => [] as EnrichedResult[]),
+      fetchGoogleBooksCoverMap(query).catch(
+        () => new Map<string, { coverUrl: string; pageCount: number | null }>()
+      ),
+      getSpellingSuggestion(query).catch(() => null),
+    ]);
+
+    for (const r of braveResults) {
+      if (r.coverUrl && r.pageCount != null) continue;
+      const hit = coverMap.get(normalize(r.title));
+      if (!hit) continue;
+      if (!r.coverUrl) r.coverUrl = hit.coverUrl;
+      if (r.pageCount == null) r.pageCount = hit.pageCount;
+    }
+
+    const merged = mergeByTitle(braveResults);
+    const filtered = filterRelevant(merged, query);
+    const sorted = sortResults(filtered, query);
+
+    const suggestion = sorted.length < 3 ? suggestionCandidate : null;
+
+    return {
+      results: sorted.map(
+        ({ pageCount: _pageCount, source: _source, ...rest }) => rest
+      ),
+      suggestion,
+    };
+  }
+
+  const fetched = await Promise.all([
+    searchInternetArchive(query).catch(() => [] as EnrichedResult[]),
+    searchOpenLibrary(query).catch(() => [] as EnrichedResult[]),
+  ]);
 
   const merged = mergeByTitle(fetched.flat());
   const filtered = filterRelevant(merged, query);
   await enrichMissingCovers(filtered);
   const sorted = sortResults(filtered, query);
 
-  const suggestion =
-    tier === "primary" && sorted.length < 3
-      ? await getSpellingSuggestion(query)
-      : null;
-
   return {
     results: sorted.map(
       ({ pageCount: _pageCount, source: _source, ...rest }) => rest
     ),
-    suggestion,
+    suggestion: null,
   };
 }
 
@@ -365,6 +389,47 @@ function looksLikeJunk(title: string): boolean {
   if (/\.(doc|docx|tex|tmp)\b/i.test(title)) return true;
   if (/^untitled$/i.test(title)) return true;
   return false;
+}
+
+type GoogleBooksResponse = {
+  items?: {
+    volumeInfo?: {
+      title?: string;
+      imageLinks?: { thumbnail?: string; smallThumbnail?: string };
+      pageCount?: number;
+    };
+  }[];
+};
+
+async function fetchGoogleBooksCoverMap(
+  query: string
+): Promise<Map<string, { coverUrl: string; pageCount: number | null }>> {
+  const map = new Map<string, { coverUrl: string; pageCount: number | null }>();
+  const url = new URL("https://www.googleapis.com/books/v1/volumes");
+  url.searchParams.set("q", query);
+  url.searchParams.set("maxResults", "20");
+  url.searchParams.set("printType", "books");
+  url.searchParams.set(
+    "fields",
+    "items(volumeInfo(title,imageLinks/thumbnail,imageLinks/smallThumbnail,pageCount))"
+  );
+
+  const res = await fetch(url.toString(), { cache: "no-store" });
+  if (!res.ok) return map;
+  const data = (await res.json()) as GoogleBooksResponse;
+  for (const item of data.items ?? []) {
+    const info = item.volumeInfo;
+    const title = info?.title;
+    const thumb = info?.imageLinks?.thumbnail ?? info?.imageLinks?.smallThumbnail;
+    if (!title || !thumb) continue;
+    const key = normalize(title);
+    if (!key || map.has(key)) continue;
+    map.set(key, {
+      coverUrl: thumb.replace(/^http:\/\//, "https://"),
+      pageCount: info?.pageCount ?? null,
+    });
+  }
+  return map;
 }
 
 async function getSpellingSuggestion(query: string): Promise<string | null> {

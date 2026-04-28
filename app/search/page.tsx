@@ -41,35 +41,75 @@ function SearchResults() {
     setError(null);
     setHasSearched(false);
     setSecondaryLoaded(false);
+    setSecondaryLoading(false);
 
-    fetch(`/api/search?q=${encodeURIComponent(query)}&tier=primary`, {
-      signal: controller.signal,
-    })
-      .then(async (response) => {
+    const mergeResults = (prev: BookResult[], incoming: BookResult[]) => {
+      const seen = new Set(prev.map((r) => normalizeTitle(r.title)));
+      const merged = [...prev];
+      for (const r of incoming) {
+        const key = normalizeTitle(r.title);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        merged.push(r);
+      }
+      return merged;
+    };
+
+    (async () => {
+      let primaryResults: BookResult[] = [];
+      try {
+        const response = await fetch(
+          `/api/search?q=${encodeURIComponent(query)}&tier=primary`,
+          { signal: controller.signal }
+        );
         const data = await response.json();
         if (!response.ok) {
           throw new Error(data?.error ?? "Failed to fetch results.");
         }
-        setResults(data.results ?? []);
+        primaryResults = data.results ?? [];
+        setResults(primaryResults);
         setSuggestion(data.suggestion ?? null);
-      })
-      .catch((err: unknown) => {
+      } catch (err: unknown) {
         if (err instanceof DOMException && err.name === "AbortError") return;
         setError(err instanceof Error ? err.message : "Something went wrong.");
         setResults([]);
         setSuggestion(null);
-      })
-      .finally(() => {
         setLoading(false);
         setHasSearched(true);
-      });
+        return;
+      }
+
+      // If primary found nothing, keep the loader visible while we try
+      // the secondary tier (Internet Archive + Open Library) inline.
+      if (primaryResults.length === 0) {
+        try {
+          const response = await fetch(
+            `/api/search?q=${encodeURIComponent(query)}&tier=secondary`,
+            { signal: controller.signal }
+          );
+          if (response.ok) {
+            const data = await response.json();
+            const incoming: BookResult[] = data.results ?? [];
+            setResults((prev) => mergeResults(prev, incoming));
+          }
+        } catch (err: unknown) {
+          if (err instanceof DOMException && err.name === "AbortError") return;
+        } finally {
+          setSecondaryLoaded(true);
+        }
+      }
+
+      setLoading(false);
+      setHasSearched(true);
+    })();
 
     return () => controller.abort();
   }, [query]);
 
-  // Lazy-load IA + Open Library when the user scrolls near the bottom
+  // When primary returned results, lazy-load the secondary tier on scroll.
   useEffect(() => {
     if (!query || loading || secondaryLoaded || secondaryLoading) return;
+    if (results.length === 0) return;
     const node = sentinelRef.current;
     if (!node) return;
 
@@ -114,7 +154,7 @@ function SearchResults() {
       controller.abort();
       observer.disconnect();
     };
-  }, [query, loading, secondaryLoaded, secondaryLoading]);
+  }, [query, loading, secondaryLoaded, secondaryLoading, results.length]);
 
   return (
     <main className="min-h-screen">
