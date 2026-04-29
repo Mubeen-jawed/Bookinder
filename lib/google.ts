@@ -79,6 +79,39 @@ export async function searchBookPDFs(
   const query = rawQuery.trim();
   if (!query) return { results: [], suggestion: null };
 
+  const genre = detectGenre(query);
+
+  if (genre) {
+    if (tier === "primary") {
+      const [genreResults, suggestionCandidate] = await Promise.all([
+        searchGoogleBooksBySubject(genre).catch(() => [] as EnrichedResult[]),
+        Promise.resolve(null),
+      ]);
+      const merged = mergeByTitle(genreResults);
+      const sorted = sortResults(merged, query);
+      return {
+        results: sorted.map(
+          ({ pageCount: _pageCount, source: _source, ...rest }) => rest
+        ),
+        suggestion: suggestionCandidate,
+      };
+    }
+
+    const fetched = await Promise.all([
+      searchOpenLibraryBySubject(genre).catch(() => [] as EnrichedResult[]),
+      searchInternetArchiveBySubject(genre).catch(() => [] as EnrichedResult[]),
+    ]);
+    const merged = mergeByTitle(fetched.flat());
+    await enrichMissingCovers(merged);
+    const sorted = sortResults(merged, query);
+    return {
+      results: sorted.map(
+        ({ pageCount: _pageCount, source: _source, ...rest }) => rest
+      ),
+      suggestion: null,
+    };
+  }
+
   if (tier === "primary") {
     // Run Brave, Google Books cover lookup, and the spelling suggestion all
     // in parallel — Google Books returns covers + titles for the whole query
@@ -467,4 +500,272 @@ function extractDomain(url: string): string {
   } catch {
     return "";
   }
+}
+
+type Genre = {
+  google: string;
+  openLibrary: string;
+  archive: string;
+  label: string;
+};
+
+const GENRE_PATTERNS: { match: RegExp; genre: Genre }[] = [
+  {
+    match: /\b(romance|romantic|love)\b/,
+    genre: { google: "Romance", openLibrary: "romance", archive: "romance", label: "Romance" },
+  },
+  {
+    match: /\b(sci[\s-]?fi|science[\s-]?fiction)\b/,
+    genre: {
+      google: "Science Fiction",
+      openLibrary: "science_fiction",
+      archive: "science fiction",
+      label: "Science Fiction",
+    },
+  },
+  {
+    match: /\b(self[\s-]?help|self[\s-]?improvement|personal[\s-]?development)\b/,
+    genre: {
+      google: "Self-Help",
+      openLibrary: "self-help",
+      archive: "self-help",
+      label: "Self-Help",
+    },
+  },
+  {
+    match: /\b(fantasy)\b/,
+    genre: { google: "Fantasy", openLibrary: "fantasy", archive: "fantasy", label: "Fantasy" },
+  },
+  {
+    match: /\b(mystery|detective|crime)\b/,
+    genre: { google: "Mystery", openLibrary: "mystery", archive: "mystery", label: "Mystery" },
+  },
+  {
+    match: /\b(thriller|suspense)\b/,
+    genre: { google: "Thriller", openLibrary: "thriller", archive: "thriller", label: "Thriller" },
+  },
+  {
+    match: /\b(horror)\b/,
+    genre: { google: "Horror", openLibrary: "horror", archive: "horror", label: "Horror" },
+  },
+  {
+    match: /\b(biograph(y|ies)|memoir)\b/,
+    genre: { google: "Biography", openLibrary: "biography", archive: "biography", label: "Biography" },
+  },
+  {
+    match: /\b(history|historical)\b/,
+    genre: { google: "History", openLibrary: "history", archive: "history", label: "History" },
+  },
+  {
+    match: /\b(philosoph(y|ical))\b/,
+    genre: { google: "Philosophy", openLibrary: "philosophy", archive: "philosophy", label: "Philosophy" },
+  },
+  {
+    match: /\b(business|entrepreneur(ship)?)\b/,
+    genre: { google: "Business", openLibrary: "business", archive: "business", label: "Business" },
+  },
+  {
+    match: /\b(poetry|poems?)\b/,
+    genre: { google: "Poetry", openLibrary: "poetry", archive: "poetry", label: "Poetry" },
+  },
+  {
+    match: /\b(children'?s?|kids?)\b/,
+    genre: { google: "Juvenile", openLibrary: "children", archive: "children", label: "Children's" },
+  },
+  {
+    match: /\b(young[\s-]?adult|ya)\b/,
+    genre: {
+      google: "Young Adult",
+      openLibrary: "young_adult",
+      archive: "young adult",
+      label: "Young Adult",
+    },
+  },
+  {
+    match: /\b(programming|coding|computer[\s-]?science)\b/,
+    genre: {
+      google: "Computers",
+      openLibrary: "computer_programming",
+      archive: "computer programming",
+      label: "Programming",
+    },
+  },
+];
+
+function detectGenre(query: string): Genre | null {
+  const cleaned = query.toLowerCase().replace(/\bbooks?\b|\bnovels?\b/g, "").trim();
+  if (!cleaned) return null;
+  for (const { match, genre } of GENRE_PATTERNS) {
+    if (match.test(cleaned)) return genre;
+  }
+  return null;
+}
+
+async function searchGoogleBooksBySubject(genre: Genre): Promise<EnrichedResult[]> {
+  const url = new URL("https://www.googleapis.com/books/v1/volumes");
+  url.searchParams.set("q", `subject:"${genre.google}"`);
+  url.searchParams.set("maxResults", "30");
+  url.searchParams.set("printType", "books");
+  url.searchParams.set("orderBy", "relevance");
+  url.searchParams.set(
+    "fields",
+    "items(volumeInfo(title,authors,description,infoLink,previewLink,canonicalVolumeLink,imageLinks/thumbnail,imageLinks/smallThumbnail,pageCount,publishedDate,industryIdentifiers))"
+  );
+
+  const res = await fetch(url.toString(), { cache: "no-store" });
+  if (!res.ok) throw new Error(`Google Books error: ${res.status}`);
+  const data = (await res.json()) as {
+    items?: {
+      volumeInfo?: {
+        title?: string;
+        authors?: string[];
+        description?: string;
+        infoLink?: string;
+        previewLink?: string;
+        canonicalVolumeLink?: string;
+        imageLinks?: { thumbnail?: string; smallThumbnail?: string };
+        pageCount?: number;
+        publishedDate?: string;
+      };
+    }[];
+  };
+
+  return (data.items ?? [])
+    .map<EnrichedResult | null>((item) => {
+      const info = item.volumeInfo;
+      if (!info?.title) return null;
+      const link =
+        info.canonicalVolumeLink ?? info.infoLink ?? info.previewLink ?? "";
+      if (!link) return null;
+      const thumb =
+        info.imageLinks?.thumbnail ?? info.imageLinks?.smallThumbnail ?? null;
+      const author = info.authors?.[0];
+      const year = info.publishedDate?.slice(0, 4);
+      const snippet =
+        [author ? `By ${author}` : null, year, genre.label]
+          .filter(Boolean)
+          .join(" · ") ||
+        (info.description ? info.description.slice(0, 160) : "");
+
+      return {
+        title: info.title,
+        link,
+        snippet,
+        domain: extractDomain(link) || "books.google.com",
+        coverUrl: thumb ? thumb.replace(/^http:\/\//, "https://") : null,
+        pdfUrl: null,
+        pageCount: info.pageCount ?? null,
+        source: "ol",
+      };
+    })
+    .filter((r): r is EnrichedResult => r !== null);
+}
+
+async function searchOpenLibraryBySubject(genre: Genre): Promise<EnrichedResult[]> {
+  const url = new URL(`https://openlibrary.org/subjects/${genre.openLibrary}.json`);
+  url.searchParams.set("limit", "30");
+  url.searchParams.set("ebooks", "true");
+
+  const res = await fetch(url.toString(), { cache: "no-store" });
+  if (!res.ok) throw new Error(`Open Library subject error: ${res.status}`);
+
+  const data = (await res.json()) as {
+    works?: {
+      key?: string;
+      title?: string;
+      authors?: { name?: string }[];
+      first_publish_year?: number;
+      cover_id?: number;
+      cover_edition_key?: string;
+      ia?: string[];
+      availability?: { identifier?: string; status?: string };
+    }[];
+  };
+
+  return (data.works ?? [])
+    .map<EnrichedResult | null>((w) => {
+      if (!w.title || !w.key) return null;
+      const iaId = w.ia?.[0] ?? w.availability?.identifier ?? null;
+      const link = iaId
+        ? `https://archive.org/details/${iaId}`
+        : `https://openlibrary.org${w.key}`;
+      const domain = iaId ? "archive.org" : "openlibrary.org";
+      const author = w.authors?.[0]?.name;
+      const snippet = [
+        author ? `By ${author}` : null,
+        w.first_publish_year ? String(w.first_publish_year) : null,
+        genre.label,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      let coverUrl: string | null = null;
+      if (w.cover_id) {
+        coverUrl = `https://covers.openlibrary.org/b/id/${w.cover_id}-M.jpg`;
+      } else if (w.cover_edition_key) {
+        coverUrl = `https://covers.openlibrary.org/b/olid/${w.cover_edition_key}-M.jpg`;
+      } else if (iaId) {
+        coverUrl = `https://archive.org/services/img/${iaId}`;
+      }
+      const pdfUrl = iaId
+        ? `https://archive.org/download/${iaId}/${iaId}.pdf`
+        : null;
+      return {
+        title: w.title,
+        link,
+        snippet,
+        domain,
+        coverUrl,
+        pdfUrl,
+        pageCount: null,
+        source: "ol",
+      };
+    })
+    .filter((r): r is EnrichedResult => r !== null);
+}
+
+async function searchInternetArchiveBySubject(genre: Genre): Promise<EnrichedResult[]> {
+  const url = new URL(INTERNET_ARCHIVE_ENDPOINT);
+  url.searchParams.set(
+    "q",
+    `subject:"${genre.archive}" AND mediatype:texts AND format:pdf`
+  );
+  url.searchParams.append("fl[]", "identifier");
+  url.searchParams.append("fl[]", "title");
+  url.searchParams.append("fl[]", "creator");
+  url.searchParams.append("fl[]", "year");
+  url.searchParams.append("fl[]", "subject");
+  url.searchParams.append("fl[]", "format");
+  url.searchParams.append("fl[]", "imagecount");
+  url.searchParams.set("rows", "20");
+  url.searchParams.set("output", "json");
+
+  const response = await fetch(url.toString(), { cache: "no-store" });
+  if (!response.ok) throw new Error(`Internet Archive error: ${response.status}`);
+
+  const data = (await response.json()) as InternetArchiveResponse;
+  const docs = data.response?.docs ?? [];
+
+  return docs
+    .filter((doc) => Boolean(doc.identifier))
+    .map<EnrichedResult>((doc) => {
+      const id = doc.identifier as string;
+      const title = pickFirst(doc.title) ?? "Untitled";
+      const author = pickFirst(doc.creator);
+      const year = doc.year ? String(doc.year) : null;
+      const formats = toArray(doc.format).map((f) => f.toLowerCase());
+      const hasPdf = formats.some((f) => f.includes("pdf"));
+      const snippet = [author ? `By ${author}` : null, year, genre.label]
+        .filter(Boolean)
+        .join(" · ");
+      return {
+        title,
+        link: `https://archive.org/details/${id}`,
+        snippet,
+        domain: "archive.org",
+        coverUrl: `https://archive.org/services/img/${id}`,
+        pdfUrl: hasPdf ? `https://archive.org/download/${id}/${id}.pdf` : null,
+        pageCount: doc.imagecount ?? null,
+        source: "ia",
+      };
+    });
 }
