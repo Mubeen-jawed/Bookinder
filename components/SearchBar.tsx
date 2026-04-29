@@ -147,14 +147,14 @@ export default function SearchBar({ initialQuery = "", compact = false }: Search
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
-            strokeWidth="2.5"
+            strokeWidth="2.25"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className="w-5 h-5 sm:hidden"
+            className={`sm:hidden ${compact ? "w-4 h-4" : "w-5 h-5"}`}
             aria-hidden="true"
           >
-            <path d="M5 12h14" />
-            <path d="m13 5 7 7-7 7" />
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.3-4.3" />
           </svg>
         </motion.button>
       </motion.form>

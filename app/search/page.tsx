@@ -166,7 +166,7 @@ function SearchResults() {
           >
             Bookinder
           </Link>
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <SearchBar initialQuery={query} compact />
           </div>
         </div>
