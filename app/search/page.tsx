@@ -157,7 +157,7 @@ function SearchResults() {
   }, [query, loading, secondaryLoaded, secondaryLoading, results.length]);
 
   return (
-    <main className="min-h-screen">
+    <main className="flex-1 flex flex-col">
       <header className="sticky top-0 z-10 bg-background/90 backdrop-blur border-b border-border">
         <div className="max-w-[900px] mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-3 sm:gap-4">
           <Link
@@ -180,7 +180,15 @@ function SearchResults() {
             transition={{ duration: 0.4 }}
             className="text-sm text-dark/60 mb-6"
           >
-            Results for{" "}
+            {!loading && results.length > 0 && (
+              <>
+                <span className="text-dark font-medium">{results.length}</span>
+                {" "}
+                {results.length === 1 ? "result" : "results"}
+                {" "}for{" "}
+              </>
+            )}
+            {(loading || results.length === 0) && <>Results for{" "}</>}
             <span className="text-dark font-medium">“{query}”</span>
           </motion.p>
         ) : (
@@ -244,7 +252,7 @@ function SearchResults() {
 
 function SearchFallback() {
   return (
-    <main className="min-h-screen">
+    <main className="flex-1 flex flex-col">
       <header className="sticky top-0 z-10 bg-background/90 backdrop-blur border-b border-border">
         <div className="max-w-[900px] mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-3 sm:gap-4">
           <Link

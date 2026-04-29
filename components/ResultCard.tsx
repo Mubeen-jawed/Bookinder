@@ -1,9 +1,18 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import { useEffect, useState } from "react";
 import type { BookResult } from "@/lib/google";
 import PdfCover from "./PdfCover";
+
+function isDirectPdfLink(url: string): boolean {
+  try {
+    const { pathname } = new URL(url);
+    return /\.pdf(?:$|[?#])/i.test(pathname);
+  } catch {
+    return /\.pdf(?:$|[?#])/i.test(url);
+  }
+}
 
 type ResultCardProps = {
   result: BookResult;
@@ -13,6 +22,26 @@ type ResultCardProps = {
 export default function ResultCard({ result, index }: ResultCardProps) {
   const [copied, setCopied] = useState(false);
   const [coverFailed, setCoverFailed] = useState(false);
+  const [showPdfPrompt, setShowPdfPrompt] = useState(false);
+
+  const openIsDirectPdf =
+    isDirectPdfLink(result.link) ||
+    (result.pdfUrl != null && result.pdfUrl === result.link);
+
+  const handleOpenClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!openIsDirectPdf) return;
+    event.preventDefault();
+    setShowPdfPrompt(true);
+  };
+
+  useEffect(() => {
+    if (!showPdfPrompt) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowPdfPrompt(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [showPdfPrompt]);
 
   const handleCopy = async () => {
     try {
@@ -75,6 +104,7 @@ export default function ResultCard({ result, index }: ResultCardProps) {
             href={result.link}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={handleOpenClick}
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
             className="inline-flex items-center justify-center gap-1.5 sm:gap-2 bg-primary text-white text-xs sm:text-sm font-medium h-9 sm:h-10 px-3.5 sm:px-4 rounded-full hover:bg-dark transition-colors duration-300"
@@ -134,6 +164,60 @@ export default function ResultCard({ result, index }: ResultCardProps) {
           </button>
         </div>
       </div>
+
+      <AnimatePresence>
+        {showPdfPrompt && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-dark/40 backdrop-blur-sm"
+            onClick={() => setShowPdfPrompt(false)}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={`pdf-prompt-title-${index}`}
+          >
+            <motion.div
+              initial={{ opacity: 0, y: 8, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.98 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-sm bg-white rounded-2xl shadow-lift p-6"
+            >
+              <h2
+                id={`pdf-prompt-title-${index}`}
+                className="font-serif text-lg sm:text-xl text-dark"
+              >
+                Heads up — this is a direct PDF link
+              </h2>
+              <p className="mt-2 text-sm text-dark/70">
+                Opening this link will start downloading the PDF in your
+                browser. Continue?
+              </p>
+              <div className="mt-5 flex flex-wrap justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPdfPrompt(false)}
+                  className="inline-flex items-center justify-center border border-border text-dark/80 text-sm font-medium h-10 px-4 rounded-full hover:border-primary hover:text-primary transition-colors duration-300"
+                >
+                  Cancel
+                </button>
+                <a
+                  href={result.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setShowPdfPrompt(false)}
+                  className="inline-flex items-center justify-center bg-primary text-white text-sm font-medium h-10 px-4 rounded-full hover:bg-dark transition-colors duration-300"
+                >
+                  Continue
+                </a>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.article>
   );
 }

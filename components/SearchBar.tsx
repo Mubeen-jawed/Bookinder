@@ -17,6 +17,7 @@ export default function SearchBar({ initialQuery = "", compact = false }: Search
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [highlight, setHighlight] = useState<number>(-1);
   const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const trimmed = query.trim();
@@ -62,6 +63,7 @@ export default function SearchBar({ initialQuery = "", compact = false }: Search
     if (!trimmed) return;
     setSuggestions([]);
     setFocused(false);
+    inputRef.current?.blur();
     router.push(`/search?q=${encodeURIComponent(trimmed)}`);
   };
 
@@ -118,6 +120,7 @@ export default function SearchBar({ initialQuery = "", compact = false }: Search
             <path d="m21 21-4.3-4.3" />
           </svg>
           <input
+            ref={inputRef}
             type="text"
             value={query}
             onChange={(event) => setQuery(event.target.value)}

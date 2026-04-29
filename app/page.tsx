@@ -5,7 +5,7 @@ import SearchBar from "@/components/SearchBar";
 
 export default function LandingPage() {
   return (
-    <main className="min-h-screen flex items-center justify-center px-4 sm:px-6 py-10">
+    <main className="flex-1 flex items-center justify-center px-4 sm:px-6 py-10">
       <div className="w-full max-w-[700px] flex flex-col items-center text-center">
         <motion.p
           initial={{ opacity: 0, y: 12 }}
