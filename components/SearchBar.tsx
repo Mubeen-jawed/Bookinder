@@ -96,12 +96,12 @@ export default function SearchBar({ initialQuery = "", compact = false }: Search
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, ease: "easeOut" }}
-        className={`w-full flex items-center gap-2 ${compact ? "" : "md:gap-3"}`}
+        className={`w-full flex items-center ${compact ? "gap-1.5 sm:gap-2" : "gap-2 md:gap-3"}`}
       >
         <div
-          className={`flex-1 flex items-center bg-white rounded-full border border-border transition-all duration-300 ${
+          className={`flex-1 min-w-0 flex items-center bg-white rounded-full border border-border transition-all duration-300 ${
             focused ? "shadow-glow border-primary" : "shadow-soft hover:-translate-y-0.5"
-          } ${compact ? "h-11 sm:h-12 px-4 sm:px-5" : "h-12 sm:h-[60px] px-4 sm:px-6"}`}
+          } ${compact ? "h-11 sm:h-12 px-3 sm:px-5" : "h-12 sm:h-[60px] px-4 sm:px-6"}`}
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -111,7 +111,7 @@ export default function SearchBar({ initialQuery = "", compact = false }: Search
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className="w-5 h-5 text-accent mr-3 shrink-0"
+            className={`w-5 h-5 text-accent shrink-0 ${compact ? "mr-2 sm:mr-3" : "mr-3"}`}
             aria-hidden="true"
           >
             <circle cx="11" cy="11" r="8" />

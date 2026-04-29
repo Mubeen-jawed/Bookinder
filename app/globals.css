@@ -8,13 +8,14 @@ body {
   color: #2B2B2B;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  overflow-x: hidden;
   text-size-adjust: 100%;
   -webkit-text-size-adjust: 100%;
 }
 
+/* Keep horizontal overflow contained on body only — applying it to <html>
+   as well breaks vertical scrolling and `position: sticky` on iOS Safari. */
 body {
-  overscroll-behavior-y: none;
+  overflow-x: clip;
 }
 
 /* Prevent iOS Safari from auto-zooming on input focus.
