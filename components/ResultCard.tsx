@@ -62,9 +62,9 @@ export default function ResultCard({ result, index }: ResultCardProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35, delay: index * 0.05, ease: "easeOut" }}
       whileHover={{ y: -3 }}
-      className="bg-white border border-border rounded-xl p-4 sm:p-5 shadow-soft hover:shadow-lift transition-shadow duration-300 flex gap-3 sm:gap-4 overflow-hidden"
+      className="w-full max-w-full min-w-0 bg-white border border-border rounded-xl p-3 sm:p-5 shadow-soft hover:shadow-lift transition-shadow duration-300 flex gap-3 sm:gap-4 overflow-hidden"
     >
-      <div className="shrink-0 w-20 h-28 sm:w-24 sm:h-36 rounded-md overflow-hidden bg-border/40 flex items-center justify-center">
+      <div className="shrink-0 w-16 h-24 sm:w-24 sm:h-36 rounded-md overflow-hidden bg-border/40 flex items-center justify-center">
         {showCover ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -99,7 +99,7 @@ export default function ResultCard({ result, index }: ResultCardProps) {
           {stripHtml(result.snippet)}
         </p>
 
-        <div className="mt-3 sm:mt-5 flex flex-wrap items-center gap-2 sm:gap-3">
+        <div className="mt-3 sm:mt-5 flex flex-wrap items-center gap-1.5 sm:gap-3 min-w-0">
           <motion.a
             href={result.link}
             target="_blank"
@@ -107,7 +107,7 @@ export default function ResultCard({ result, index }: ResultCardProps) {
             onClick={handleOpenClick}
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.97 }}
-            className="inline-flex items-center justify-center gap-1.5 sm:gap-2 bg-primary text-white text-xs sm:text-sm font-medium h-9 sm:h-10 px-3.5 sm:px-4 rounded-full hover:bg-dark transition-colors duration-300"
+            className="inline-flex items-center justify-center gap-1.5 sm:gap-2 bg-primary text-white text-xs sm:text-sm font-medium h-9 sm:h-10 px-3 sm:px-4 rounded-full hover:bg-dark transition-colors duration-300"
           >
             Open PDF
             <svg
@@ -134,7 +134,7 @@ export default function ResultCard({ result, index }: ResultCardProps) {
               download
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}
-              className="inline-flex items-center justify-center gap-1.5 sm:gap-2 bg-accent text-white text-xs sm:text-sm font-medium h-9 sm:h-10 px-3.5 sm:px-4 rounded-full hover:bg-dark transition-colors duration-300"
+              className="inline-flex items-center justify-center gap-1.5 sm:gap-2 bg-accent text-white text-xs sm:text-sm font-medium h-9 sm:h-10 px-3 sm:px-4 rounded-full hover:bg-dark transition-colors duration-300"
             >
               Download
               <svg
@@ -158,7 +158,7 @@ export default function ResultCard({ result, index }: ResultCardProps) {
           <button
             type="button"
             onClick={handleCopy}
-            className="inline-flex items-center justify-center gap-1.5 sm:gap-2 border border-border text-dark/80 text-xs sm:text-sm font-medium h-9 sm:h-10 px-3.5 sm:px-4 rounded-full hover:border-primary hover:text-primary transition-colors duration-300"
+            className="inline-flex items-center justify-center gap-1.5 sm:gap-2 border border-border text-dark/80 text-xs sm:text-sm font-medium h-9 sm:h-10 px-3 sm:px-4 rounded-full hover:border-primary hover:text-primary transition-colors duration-300"
           >
             {copied ? "Copied" : "Copy Link"}
           </button>

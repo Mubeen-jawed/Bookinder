@@ -10,12 +10,10 @@ body {
   -moz-osx-font-smoothing: grayscale;
   text-size-adjust: 100%;
   -webkit-text-size-adjust: 100%;
-}
-
-/* Keep horizontal overflow contained on body only — applying it to <html>
-   as well breaks vertical scrolling and `position: sticky` on iOS Safari. */
-body {
+  /* `overflow-x: clip` contains horizontal overflow without creating a scroll
+     container, so vertical scroll and `position: sticky` keep working on iOS. */
   overflow-x: clip;
+  max-width: 100%;
 }
 
 /* Prevent iOS Safari from auto-zooming on input focus.

@@ -158,8 +158,8 @@ function SearchResults() {
 
   return (
     <main className="flex-1 flex flex-col">
-      <header className="sticky top-0 z-10 bg-background/90 backdrop-blur border-b border-border">
-        <div className="max-w-[900px] mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-3 sm:gap-4">
+      <header className="sticky top-0 z-10 bg-background/90 backdrop-blur border-b border-border w-full">
+        <div className="w-full max-w-[900px] mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-3 sm:gap-4 min-w-0">
           <Link
             href="/"
             className="font-serif text-base sm:text-xl text-dark hover:text-primary transition-colors duration-300 shrink-0"
@@ -172,7 +172,7 @@ function SearchResults() {
         </div>
       </header>
 
-      <section className="max-w-[900px] mx-auto px-4 sm:px-6 py-6 sm:py-10">
+      <section className="w-full max-w-[900px] mx-auto px-4 sm:px-6 py-6 sm:py-10 min-w-0">
         {query ? (
           <motion.p
             initial={{ opacity: 0 }}
@@ -229,7 +229,7 @@ function SearchResults() {
         )}
 
         {!loading && !error && results.length > 0 && (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-4 w-full min-w-0">
             {results.map((result, index) => (
               <ResultCard
                 key={`${result.link}-${index}`}
@@ -253,8 +253,8 @@ function SearchResults() {
 function SearchFallback() {
   return (
     <main className="flex-1 flex flex-col">
-      <header className="sticky top-0 z-10 bg-background/90 backdrop-blur border-b border-border">
-        <div className="max-w-[900px] mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-3 sm:gap-4">
+      <header className="sticky top-0 z-10 bg-background/90 backdrop-blur border-b border-border w-full">
+        <div className="w-full max-w-[900px] mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-3 sm:gap-4 min-w-0">
           <Link
             href="/"
             className="font-serif text-base sm:text-xl text-dark hover:text-primary transition-colors duration-300 shrink-0"
@@ -263,7 +263,7 @@ function SearchFallback() {
           </Link>
         </div>
       </header>
-      <section className="max-w-[900px] mx-auto px-4 sm:px-6 py-6 sm:py-10">
+      <section className="w-full max-w-[900px] mx-auto px-4 sm:px-6 py-6 sm:py-10 min-w-0">
         <Loader />
       </section>
     </main>
